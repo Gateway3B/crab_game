@@ -1,36 +1,40 @@
-use bevy::{prelude::*, ecs::query::QuerySingleError};
+use bevy::{ecs::query::QuerySingleError, prelude::*};
 
 use crate::*;
 
-pub struct UIPlugin;
+// region: Plugin
+
+pub struct CombatUIPlugin;
+
+impl Plugin for CombatUIPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_system_set(
+            SystemSet::on_update(GameState::Gameplay)
+                .with_system(create_ui_on_selection)
+                .with_system(combat_button_clicked)
+                .with_system(grey_tower_buttons.after(create_ui_on_selection)),
+        );
+    }
+}
+
+// endregion
 
 #[derive(Component)]
-pub struct TowerUIRoot;
+pub struct CombatUIRoot;
 
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
-pub struct TowerButtonState {
+pub struct CombatButtonState {
+    name: String,
     cost: u32,
-    affordable: bool
-}
-
-impl Plugin for UIPlugin {
-    fn build(&self, app: &mut App) {
-        app
-            .add_system_set(
-                SystemSet::on_update(GameState::Gameplay)
-                    .with_system(create_ui_on_selection)
-                    .with_system(tower_button_clicked)
-                    .with_system(grey_tower_buttons.after(create_ui_on_selection))
-            );
-    }
+    affordable: bool,
 }
 
 fn create_ui_on_selection(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     selections: Query<&Selection>,
-    root: Query<Entity, With<TowerUIRoot>>,
+    root: Query<Entity, With<CombatUIRoot>>,
 ) {
     let at_least_one_selected = selections.iter().any(|selection| selection.selected());
 
@@ -63,7 +67,7 @@ fn create_ui(commands: &mut Commands, crab_assets: &AssetServer) {
             ..default()
         })
         .insert(TowerUIRoot)
-        .insert(Name::new("UIRoot"))
+        .insert(Name::new("CombatUIRoot"))
         .with_children(|commands| {
             for (i, tower) in TowerType::iter().enumerate() {
                 commands
@@ -78,7 +82,7 @@ fn create_ui(commands: &mut Commands, crab_assets: &AssetServer) {
                     })
                     .insert(TowerButtonState {
                         cost: cost[i],
-                        affordable: false
+                        affordable: false,
                     })
                     .insert(tower)
                     .insert(Name::new("Button"))
@@ -100,7 +104,7 @@ fn create_ui(commands: &mut Commands, crab_assets: &AssetServer) {
         });
 }
 
-fn tower_button_clicked(
+fn combat_button_clicked(
     interaction: Query<(&Interaction, &TowerType, &TowerButtonState), Changed<Interaction>>,
     mut commands: Commands,
     selection: Query<(Entity, &Selection, &Transform)>,
@@ -125,7 +129,7 @@ fn tower_button_clicked(
 
 fn grey_tower_buttons(
     mut buttons: Query<(&mut BackgroundColor, &mut TowerButtonState)>,
-    player: Query<&Player>
+    player: Query<&Player>,
 ) {
     if let Ok(player) = player.get_single() {
         for (mut tint, mut state) in &mut buttons {

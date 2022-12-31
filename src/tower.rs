@@ -21,9 +21,7 @@ pub struct TowerPlugin;
 impl Plugin for TowerPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Tower>()
-            .add_system_set(SystemSet::on_update(GameState::Gameplay)    
-                .with_system(tower_shooting)
-            );
+            .add_system_set(SystemSet::on_update(GameState::Gameplay).with_system(tower_shooting));
     }
 }
 
@@ -32,7 +30,7 @@ fn tower_shooting(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut towers: Query<(Entity, &mut Tower, &GlobalTransform)>,
-    targets: Query<&GlobalTransform, With<Target>>,
+    targets: Query<&GlobalTransform, Added<Target>>,
     time: Res<Time>,
 ) {
     for (tower_ent, mut tower, transform) in &mut towers {
