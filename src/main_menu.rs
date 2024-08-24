@@ -15,8 +15,8 @@ pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_enter(GameState::MainMenu).with_system(spawn_main_menu))
-            .add_system_set(SystemSet::on_update(GameState::MainMenu).with_system(click_handler));
+        app.add_systems(OnEnter(GameState::MainMenu), spawn_main_menu)
+            .add_systems(Update, click_handler.run_if(in_state(GameState::MainMenu)));
     }
 }
 
@@ -24,7 +24,8 @@ fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,
                 ..default()
@@ -56,14 +57,14 @@ fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 commands,
                 &asset_server,
                 "Start Game",
-                Color::GREEN,
+                Color::srgb(0., 1., 0.),
                 MainMenuButton::StartButton,
             );
             spawn_button(
                 commands,
                 &asset_server,
                 "Quit Game",
-                Color::RED,
+                Color::srgb(1., 0., 0.),
                 MainMenuButton::QuitButton,
             );
         });
@@ -79,7 +80,8 @@ fn spawn_button(
     commands
         .spawn(ButtonBundle {
             style: Style {
-                size: Size::new(Val::Percent(65.0), Val::Percent(15.0)),
+                width: Val::Percent(65.0),
+                height: Val::Percent(15.0),
                 align_self: AlignSelf::Center,
                 justify_content: JustifyContent::Center,
                 margin: UiRect::all(Val::Percent(2.0)),
@@ -115,24 +117,19 @@ fn click_handler(
     interaction: Query<(&Interaction, &MainMenuButton), Changed<Interaction>>,
     mut commands: Commands,
     menu_ui_root: Query<Entity, With<MenuUIRoot>>,
-    mut game_state: ResMut<State<GameState>>,
+    mut game_state: ResMut<NextState<GameState>>,
     mut exit: EventWriter<AppExit>,
-    mut mouse_input: ResMut<Input<MouseButton>>,
 ) {
     for (interaction, button) in &interaction {
-        if matches!(interaction, Interaction::Clicked) {
+        if matches!(interaction, Interaction::Pressed) {
             match button {
                 MainMenuButton::StartButton => {
                     let menu_root = menu_ui_root.single();
                     commands.entity(menu_root).despawn_recursive();
-                    game_state.set(GameState::Gameplay).unwrap_or_else(|err| {
-                        println!("{err:?}");
-                        exit.send(AppExit);
-                    });
-                    mouse_input.clear();
+                    game_state.set(GameState::Gameplay);
                 }
                 MainMenuButton::QuitButton => {
-                    exit.send(AppExit);
+                    exit.send(AppExit::Success);
                 }
             }
         }

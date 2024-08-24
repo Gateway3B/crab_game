@@ -1,0 +1,5 @@
+services:
+  web:
+    image: crabgame:latest
+    ports:
+      - 1005:80

@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use bevy::render::render_resource::{AsBindGroup, ShaderRef};
 
 use crate::*;
 
@@ -8,7 +8,9 @@ pub struct ScenesPlugin;
 
 impl Plugin for ScenesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_enter(GameState::Gameplay).with_system(spawn_basic_scene));
+        app
+            .add_plugins(MaterialPlugin::<WaterMaterial>::default())
+            .add_systems(OnEnter(GameState::Gameplay), spawn_basic_scene);
     }
 }
 
@@ -18,30 +20,48 @@ impl Plugin for ScenesPlugin {
 
 // endregion
 
+// region: Materials
+
+#[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
+struct WaterMaterial {}
+
+impl Material for WaterMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "water_shader.wgsl".into()
+    }
+
+    // fn vertex_shader() -> ShaderRef {
+    //     "water_shader.wgsl".into()
+    // }
+
+    fn alpha_mode(&self) -> AlphaMode {
+        AlphaMode::Blend
+    }
+}
+
+// endregion
+
 // region: Systems
 
 fn spawn_basic_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut water_materials: ResMut<Assets<WaterMaterial>>,
     crab: Res<Crab1Assets>,
 ) {
     commands
         .spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 200.0 })),
-            material: materials.add(Color::rgb(0.76, 0.7, 0.5).into()),
+            mesh: meshes.add(Plane3d::default().mesh().size(200., 200.)),
+            material: materials.add(Color::srgb(0.76, 0.7, 0.5)),
             ..default()
         })
         .insert(Name::new("Ground"));
 
     commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 200.0 })),
-            material: materials.add(StandardMaterial {
-                base_color: Color::BLUE.clone().set_a(0.5).to_owned(),
-                alpha_mode: AlphaMode::Blend,
-                ..default()
-            }),
+        .spawn(MaterialMeshBundle {
+            mesh: meshes.add(Plane3d::default().mesh().size(200., 200.)),
+            material: water_materials.add(WaterMaterial {}),
             transform: Transform::from_xyz(0.0, 1.5, 0.0),
             ..default()
         })
@@ -62,8 +82,8 @@ fn spawn_basic_scene(
 
     let transform = Transform::from_xyz(0.0, 0.0, 0.0);
     spawn_crab(&mut commands, &crab, transform, CrabType::One);
-    let transform = Transform::from_xyz(5.0, 0.0, 0.0);
-    spawn_crab(&mut commands, &crab, transform, CrabType::One);
+    // let transform = Transform::from_xyz(5.0, 0.0, 0.0);
+    // spawn_crab(&mut commands, &crab, transform, CrabType::One);
 }
 
 // endregion

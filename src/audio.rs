@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use bevy_kira_audio::{Audio, AudioControl, AudioPlugin, AudioSource};
+use bevy_kira_audio::{prelude::Volume, Audio, AudioControl, AudioPlugin, AudioSource};
 use strum::{EnumIter, IntoStaticStr};
 
 // region: Plugin Setup
@@ -9,9 +9,9 @@ pub struct InternalAudioPlugin;
 
 impl Plugin for InternalAudioPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(AudioPlugin)
-            .add_startup_system_to_stage(StartupStage::PreStartup, load_music)
-            .add_startup_system_to_stage(StartupStage::PostStartup, start_music);
+        app.add_plugins(AudioPlugin)
+            .add_systems(PreStartup, load_music)
+            .add_systems(PostStartup, start_music);
     }
 }
 // endregion
@@ -33,7 +33,7 @@ pub struct AudioResources {
 // region: Systems
 
 fn load_music(mut commands: Commands, assets: Res<AssetServer>) {
-    let song: Handle<AudioSource> = assets.load("sounds\\Main Theme.mp3");
+    let song: Handle<AudioSource> = assets.load("sounds\\Main_Theme.mp3");
     commands.insert_resource(AudioResources {
         audio: HashMap::from([(AudioTrack::MainTheme, song)]),
     })
@@ -44,7 +44,7 @@ fn start_music(audio: Res<Audio>, audio_resources: Res<AudioResources>) {
         .audio
         .get(&AudioTrack::MainTheme) else { return };
 
-    audio.play(main_theme.clone()).looped();
+    audio.play(main_theme.clone()).with_volume(Volume::Amplitude(0.5)).looped();
 }
 
 // endregion

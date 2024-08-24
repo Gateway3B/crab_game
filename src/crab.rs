@@ -1,9 +1,8 @@
-use std::{collections::HashMap, f32::consts::PI};
+use std::{f32::consts::PI, time::Duration};
 
-use bevy::prelude::{shape::Quad, *};
-
-use bevy_inspector_egui::Inspectable;
-use strum::{EnumIter, IntoStaticStr};
+use bevy::animation::animate_targets;
+use bevy_inspector_egui::InspectorOptions;
+use strum::{Display, EnumIter, IntoStaticStr};
 
 use crate::*;
 
@@ -13,11 +12,9 @@ pub struct CrabPlugin;
 
 impl Plugin for CrabPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<CrabComp>().add_system_set(
-            SystemSet::on_update(GameState::Gameplay)
-                .with_system(start_animation)
-                .with_system(bind_animations),
-        );
+        app.register_type::<CrabComp>()
+            .add_systems(OnEnter(GameState::MainMenu), setup_animations)
+            .add_systems(Update, start_default_crab_animation.before(animate_targets).run_if(in_state(GameState::Gameplay)));
     }
 }
 
@@ -25,18 +22,31 @@ impl Plugin for CrabPlugin {
 
 // region: Structs
 
-#[derive(EnumIter, PartialEq, Eq, Hash)]
-pub enum CrabAnimations {
+#[derive(Resource)]
+pub struct Animations {
+    pub animations: Vec<AnimationNodeIndex>,
+    graph: Handle<AnimationGraph>,
+}
+
+#[derive(EnumIter, PartialEq, Eq, Hash, Component, Display, Clone)]
+pub enum CrabAnimation {
+    #[strum(to_string = "Attack 1")]
     Attack1,
+    #[strum(to_string = "Attack 2")]
     Attack2,
+    #[strum(to_string = "Idle")]
     Idle,
+    #[strum(to_string = "Jump Backward")]
     JumpBackward,
+    #[strum(to_string = "Jump Forward")]
     JumpForward,
+    #[strum(to_string = "Special 1")]
     Special1,
+    #[strum(to_string = "Walk Right")]
     WalkRight,
 }
 
-#[derive(EnumIter, IntoStaticStr, Inspectable, Component, Clone, Copy, Debug)]
+#[derive(EnumIter, IntoStaticStr, InspectorOptions, Component, Clone, Copy, Debug)]
 pub enum CrabType {
     One,
 }
@@ -52,63 +62,63 @@ pub enum CrabMoveTarget {
     All,
 }
 
-#[derive(Component, Inspectable)]
+#[derive(Component, InspectorOptions)]
 pub struct CrabMove {
-    name: String,
-    ce: i8, // Crab Energy
-    effect: CrabMoveEffect,
-    target: CrabMoveTarget,
+    _name: String,
+    _ce: i8, // Crab Energy
+    _effect: CrabMoveEffect,
+    _target: CrabMoveTarget,
 }
 
 #[derive(Reflect, Component, Default)]
 #[reflect(Component)]
 pub struct CrabComp;
 
+#[derive(Reflect, Component, Default)]
+#[reflect(Component)]
+pub struct CrabModelComp;
+
 #[derive(Component)]
 pub struct AnimationPlayerId {
-    id: Entity,
+    _id: Entity,
 }
 
 // endregion
 
 // region: Systems
 
-fn bind_animations(
-    mut players: Query<(Entity, &mut AnimationPlayer)>,
-    children: Query<&Children>,
-    crabs: Query<Entity, (With<CrabComp>, Without<AnimationPlayerId>)>,
-    mut commands: Commands,
-) {
-    for entity in &crabs {
-        let Some((animation_player_entity, _)) = players
-            .iter_many_mut(children.iter_descendants(entity))
-            .fetch_next() else { continue };
-
-        let Some(mut entity_commands) = commands.get_entity(entity) else { continue };
-
-        entity_commands.insert(AnimationPlayerId {
-            id: animation_player_entity,
-        });
-    }
-}
-
-fn start_animation(
-    crabs: Query<(Entity, &AnimationPlayerId), With<CrabComp>>,
-    mut players: Query<&mut AnimationPlayer>,
-    mut done: Local<bool>,
+fn setup_animations(
     mut commands: Commands,
     crab1_assets: Res<Crab1Assets>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
-    if *done {
-        return;
-    }
+    let mut graph = AnimationGraph::new();
+    let animations = graph
+        .add_clips(crab1_assets.animations.clone(), 1.0, graph.root).collect();
 
-    for (crab_entity, animation_player_id) in crabs.iter() {
-        let Ok(mut player) = players.get_mut(animation_player_id.id) else { return };
+    let graph = graphs.add(graph);
+    commands.insert_resource(Animations {
+        animations,
+        graph: graph.clone()
+    });
+}
 
-        player
-            .play(crab1_assets.animations[CrabAnimations::Idle as usize].clone_weak())
+fn start_default_crab_animation(
+    mut commands: Commands,
+    animations: Res<Animations>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Without<Handle<AnimationGraph>>>,
+) {
+    for (entity, mut player) in &mut players {
+        let mut transitions = AnimationTransitions::new();
+
+        transitions
+            .play(&mut player, animations.animations[CrabAnimation::Idle as usize], Duration::ZERO)
             .repeat();
+
+        commands
+            .entity(entity)
+            .insert(animations.graph.clone())
+            .insert(transitions);
     }
 }
 
@@ -116,7 +126,7 @@ pub fn spawn_crab(
     commands: &mut Commands,
     crab_assets: &Crab1Assets,
     transform: Transform,
-    crab_type: CrabType,
+    _crab_type: CrabType,
 ) -> Entity {
     commands
         .spawn(SpatialBundle::from_transform(transform))
@@ -130,7 +140,8 @@ pub fn spawn_crab(
                     0.0,
                 )),
                 ..default()
-            });
+            })
+            .insert(CrabModelComp);
         })
         .insert(CrabComp)
         .insert(Name::new("Crab"))

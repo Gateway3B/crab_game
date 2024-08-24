@@ -1,145 +1,127 @@
-use bevy::{ecs::query::QuerySingleError, prelude::*};
+use std::time::Duration;
+
+use bevy::prelude::*;
+use strum::IntoEnumIterator;
 
 use crate::*;
 
-// region: Plugin
+#[derive(Component)]
+pub struct CombatUIRoot;
 
 pub struct CombatUIPlugin;
 
 impl Plugin for CombatUIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-            SystemSet::on_update(GameState::Gameplay)
-                .with_system(create_ui_on_selection)
-                .with_system(combat_button_clicked)
-                .with_system(grey_tower_buttons.after(create_ui_on_selection)),
-        );
+        app.add_systems(OnEnter(GameState::Gameplay), spawn_combat_ui)
+            .add_systems(Update, click_handler.run_if(in_state(GameState::Gameplay)));
     }
 }
 
-// endregion
-
-#[derive(Component)]
-pub struct CombatUIRoot;
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-pub struct CombatButtonState {
-    name: String,
-    cost: u32,
-    affordable: bool,
-}
-
-fn create_ui_on_selection(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    selections: Query<&Selection>,
-    root: Query<Entity, With<CombatUIRoot>>,
-) {
-    let at_least_one_selected = selections.iter().any(|selection| selection.selected());
-
-    match root.get_single() {
-        Ok(root) => {
-            if !at_least_one_selected {
-                commands.entity(root).despawn_recursive();
-            }
-        }
-        Err(QuerySingleError::NoEntities(..)) => {
-            if at_least_one_selected {
-                create_ui(&mut commands, &asset_server);
-            }
-        }
-        _ => unreachable!("Too many ui tower roots!"),
-    }
-}
-
-fn create_ui(commands: &mut Commands, crab_assets: &AssetServer) {
-    let cost = [50, 80, 110];
-
+fn spawn_combat_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                margin: UiRect {
+                    top: Val::Auto,
+                    ..Default::default()
+                },
+                width: Val::Percent(100.),
+                height: Val::Percent(30.),
                 justify_content: JustifyContent::Center,
+                flex_direction: FlexDirection::Row,
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
-            background_color: Color::NONE.into(),
             ..default()
         })
-        .insert(TowerUIRoot)
-        .insert(Name::new("CombatUIRoot"))
+        .insert(CombatUIRoot)
+        .insert(Name::from("CombatUIRoot"))
         .with_children(|commands| {
-            for (i, tower) in TowerType::iter().enumerate() {
-                commands
-                    .spawn(ButtonBundle {
-                        style: Style {
-                            size: Size::new(Val::Percent(150. * 9.0 / 16.0), Val::Percent(15.0)),
-                            align_self: AlignSelf::FlexEnd,
-                            margin: UiRect::all(Val::Percent(2.0)),
-                            ..default()
-                        },
-                        ..default()
-                    })
-                    .insert(TowerButtonState {
-                        cost: cost[i],
-                        affordable: false,
-                    })
-                    .insert(tower)
-                    .insert(Name::new("Button"))
-                    .with_children(|commands| {
-                        let text_string: &'static str = tower.into();
-                        commands.spawn(TextBundle {
-                            text: Text::from_section(
-                                text_string,
-                                TextStyle {
-                                    font: crab_assets.load("MOONB___.TTF"),
-                                    font_size: 40.0,
-                                    color: Color::rgb(0.9, 0.9, 0.9),
-                                },
-                            ),
-                            ..default()
-                        });
-                    });
-            }
+            CrabAnimation::iter().for_each(|animation| {
+                spawn_button(
+                    commands,
+                    &asset_server,
+                    &animation.to_string(),
+                    Color::srgb(0., 0., 1.),
+                    animation,
+                );
+            });
         });
 }
 
-fn combat_button_clicked(
-    interaction: Query<(&Interaction, &TowerType, &TowerButtonState), Changed<Interaction>>,
-    mut commands: Commands,
-    selection: Query<(Entity, &Selection, &Transform)>,
-    mut player: Query<&mut Player>,
-    assets: Res<GameAssets>,
-) {
-    let mut player = player.single_mut();
-    for (interaction, tower_type, tower_button_state) in &interaction {
-        if matches!(interaction, Interaction::Clicked) {
-            for (entity, selection, transform) in &selection {
-                if selection.selected() {
-                    if player.money >= tower_button_state.cost {
-                        player.money -= tower_button_state.cost;
-                        commands.entity(entity).despawn_recursive();
-                        spawn_tower(&mut commands, &assets, transform.translation, *tower_type);
-                    }
-                }
-            }
-        }
-    }
+fn spawn_button(
+    commands: &mut ChildBuilder,
+    asset_server: &AssetServer,
+    text: &str,
+    color: Color,
+    button_type: CrabAnimation,
+) -> Entity {
+    commands
+        .spawn(ButtonBundle {
+            style: Style {
+                width: Val::Percent(32.0),
+                height: Val::Percent(30.0),
+                align_self: AlignSelf::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            transform: Transform {
+                scale: Vec3 {
+                    x: 0.5,
+                    y: 0.5,
+                    z: 0.5
+                },
+                ..Default::default()
+            },
+            background_color: color.into(),
+            ..default()
+        })
+        .with_children(|commands| {
+            commands.spawn(TextBundle {
+                style: Style {
+                    align_self: AlignSelf::Center,
+                    margin: UiRect::all(Val::Percent(3.0)),
+                    ..default()
+                },
+                text: Text::from_section(
+                    text,
+                    TextStyle {
+                        font: asset_server.load("MOONB___.TTF"),
+                        font_size: 64.0,
+                        color: Color::BLACK,
+                    },
+                ),
+                ..default()
+            });
+        })
+        .insert(button_type)
+        .insert(Name::from("Button"))
+        .id()
 }
 
-fn grey_tower_buttons(
-    mut buttons: Query<(&mut BackgroundColor, &mut TowerButtonState)>,
-    player: Query<&Player>,
+fn click_handler(
+    interaction: Query<(&Interaction, &CrabAnimation), Changed<Interaction>>,
+    mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
+    animations: Res<Animations>,
 ) {
-    if let Ok(player) = player.get_single() {
-        for (mut tint, mut state) in &mut buttons {
-            if player.money >= state.cost {
-                state.affordable = true;
-                *tint = Color::WHITE.into();
-            } else {
-                state.affordable = false;
-                *tint = Color::DARK_GRAY.into();
-            }
+    let mut action = None;
+    for (interaction, button) in &interaction {
+        if matches!(interaction, Interaction::Pressed) {
+            action = Some(button.clone() as usize)
         }
+    }
+
+    if action.is_none() {
+        return;
+    }
+
+    for (mut player, mut transitions) in &mut animation_players {
+        transitions
+            .play(
+                &mut player,
+                animations.animations[action.unwrap_or_default()],
+                Duration::from_millis(250),
+            )
+            .repeat();
     }
 }

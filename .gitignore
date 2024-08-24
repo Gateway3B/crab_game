@@ -1,2 +1,4 @@
 /target
-*.TTF
+*.tar
+*.wasm
+out/CrabGame.js

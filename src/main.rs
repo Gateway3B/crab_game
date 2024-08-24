@@ -32,25 +32,30 @@ fn spawn_camera(mut commands: Commands) {
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::rgb(0.3, 0.3, 0.3))) // Background color
+        .insert_resource(ClearColor(Color::srgb(0.3, 0.3, 0.3))) // Background color
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                width: WIDTH,
-                height: HEIGHT,
+            primary_window: Some(Window {
+                resolution: (WIDTH, HEIGHT).into(),
                 title: String::from("Crab Game"),
                 resizable: false,
                 ..Default::default()
-            },
+            }),
             ..default()
         }))
-        .add_state(GameState::MainLoading)
-        .add_startup_system(spawn_camera)
-        .add_plugin(InternalAudioPlugin)
-        .add_plugin(MainMenuPlugin)
-        .add_plugin(CombatUIPlugin)
-        .add_plugin(LoadingPlugin)
-        .add_plugin(CrabPlugin)
-        .add_plugin(ScenesPlugin)
-        .add_plugin(DevToolsPlugin)
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 2000.,
+        })
+        .insert_state(GameState::MainLoading)
+        .add_systems(Startup, spawn_camera)
+        .add_plugins((
+            InternalAudioPlugin,
+            MainMenuPlugin,
+            CombatUIPlugin,
+            LoadingPlugin,
+            CrabPlugin,
+            ScenesPlugin,
+            DevToolsPlugin,
+        ))
         .run();
 }

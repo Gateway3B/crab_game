@@ -1,4 +1,4 @@
-use bevy_inspector_egui::WorldInspectorPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use crate::*;
 
@@ -8,8 +8,9 @@ pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(WorldInspectorPlugin::new())
-            .add_system_set(SystemSet::on_update(GameState::Gameplay).with_system(camera_controls));
+        app
+            // .add_plugins(WorldInspectorPlugin::new())
+            .add_systems(Update, camera_controls.run_if(in_state(GameState::Gameplay)));
     }
 }
 
@@ -22,40 +23,36 @@ impl Plugin for DevToolsPlugin {
 // region: Systems
 
 fn camera_controls(
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
     time: Res<Time>,
 ) {
     let Ok(mut camera) = camera_query.get_single_mut() else { return };
 
-    let mut forward = camera.forward();
-    forward.y = 0.0;
-    forward = forward.normalize();
+    let forward = camera.forward();
 
-    let mut left = camera.left();
-    left.y = 0.0;
-    left = left.normalize();
+    let left = camera.left();
 
     let speed = 3.0;
     let rotate_speed = 0.3;
 
-    if keyboard.pressed(KeyCode::F) {
+    if keyboard.pressed(KeyCode::KeyF) {
         camera.translation += forward * time.delta_seconds() * speed;
     }
-    if keyboard.pressed(KeyCode::S) {
+    if keyboard.pressed(KeyCode::KeyS) {
         camera.translation -= forward * time.delta_seconds() * speed;
     }
-    if keyboard.pressed(KeyCode::R) {
+    if keyboard.pressed(KeyCode::KeyR) {
         camera.translation += left * time.delta_seconds() * speed;
     }
-    if keyboard.pressed(KeyCode::T) {
+    if keyboard.pressed(KeyCode::KeyT) {
         camera.translation -= left * time.delta_seconds() * speed;
     }
-    if keyboard.pressed(KeyCode::W) {
-        camera.rotate_axis(Vec3::Y, rotate_speed * time.delta_seconds());
+    if keyboard.pressed(KeyCode::KeyW) {
+        camera.rotate_axis(Dir3::Y, rotate_speed * time.delta_seconds());
     }
-    if keyboard.pressed(KeyCode::P) {
-        camera.rotate_axis(Vec3::Y, -rotate_speed * time.delta_seconds());
+    if keyboard.pressed(KeyCode::KeyP) {
+        camera.rotate_axis(Dir3::Y, -rotate_speed * time.delta_seconds());
     }
 }
 

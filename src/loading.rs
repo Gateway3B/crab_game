@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_asset_loader::prelude::{AssetCollection, LoadingState, LoadingStateAppExt};
+use bevy_asset_loader::{loading_state::config::ConfigureLoadingState, prelude::{AssetCollection, LoadingState, LoadingStateAppExt}};
 use bevy_kira_audio::AudioSource;
 
 use crate::*;
@@ -12,8 +12,8 @@ impl Plugin for LoadingPlugin {
         app.add_loading_state(
             LoadingState::new(GameState::MainLoading)
                 .continue_to_state(GameState::MainMenu)
-                .with_collection::<MusicAssets>()
-                .with_collection::<Crab1Assets>(),
+                .load_collection::<MusicAssets>()
+                .load_collection::<Crab1Assets>()
         );
     }
 }
@@ -24,7 +24,7 @@ impl Plugin for LoadingPlugin {
 
 #[derive(AssetCollection, Resource)]
 pub struct MusicAssets {
-    #[asset(path = "sounds/Main Theme.mp3")]
+    #[asset(path = "sounds/Main_Theme.mp3")]
     pub main_theme: Handle<AudioSource>,
 }
 
