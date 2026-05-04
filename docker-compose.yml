@@ -1,5 +1,5 @@
 services:
   web:
-    image: crabgame:latest
+    image: hl-docker-registry.g3tech.net/crab-game:latest
     ports:
       - 1005:80
