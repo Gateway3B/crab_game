@@ -1,5 +1,6 @@
 services:
   web:
-    image: hl-docker-registry.g3tech.net/crab-game:latest
+    image: ghcr.io/gateway3b/crab-game:latest
+    pull_policy: always
     ports:
       - 1005:80
